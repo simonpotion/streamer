@@ -244,7 +244,7 @@ public class HlsGrabber
             local.Year.ToString("D4", CultureInfo.InvariantCulture),
             local.Month.ToString("D2", CultureInfo.InvariantCulture),
             local.Day.ToString("D2", CultureInfo.InvariantCulture),
-            local.Hour.ToString("D2", CultureInfo.InvariantCulture)
+            (((local.Hour+1) / 2)*2).ToString("D2", CultureInfo.InvariantCulture)
         );
         Directory.CreateDirectory(subdir);
         
