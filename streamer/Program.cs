@@ -12,7 +12,7 @@ class Program
         var rewind = GetArg(args, "--rewind");
         if (!string.IsNullOrWhiteSpace(rewind))
         {
-            return await Downloader.Run(args);
+            return await RewindDownloader.Run(args);
 
         }
         
@@ -86,6 +86,8 @@ public class HlsGrabber
     private DateTime _start = DateTime.UtcNow;
     private int _downloaded = 0;
 
+    private Directives directives;
+
     public int? PollIntervalOverrideSeconds { get; set; }
     public int? MaxSegments { get; set; }
     public int? MaxDurationSeconds { get; set; }
@@ -111,9 +113,9 @@ public class HlsGrabber
                 throw new InvalidOperationException("Not a valid M3U8 playlist.");
 
             var lines = text.Replace("\r", "").Split('\n', StringSplitOptions.RemoveEmptyEntries);
-            ParsePlaylistDirectives(lines);
+            directives = Common.ParsePlaylistDirectives(lines);
 
-            var segments = ParseSegments(lines, baseUri: _playlistUri);
+            var segments = Common.ParseSegments(_mediaSequence,lines, baseUri: _playlistUri);
             if (segments.Count == 0 && !_isLive)
                 break;
 
@@ -160,7 +162,7 @@ public class HlsGrabber
                     for (var j = i + 1; j < lines.Length; j++)
                     {
                         if (lines[j].StartsWith("#")) continue;
-                        var mediaUri = ResolveUri(uri, lines[j]);
+                        var mediaUri = Common.ResolveUri(uri, lines[j]);
                         return mediaUri;
                     }
                 }
@@ -171,82 +173,15 @@ public class HlsGrabber
         return uri; // already media playlist
     }
 
-    private void ParsePlaylistDirectives(string[] lines)
-    {
-        _isLive = true;
-        foreach (var line in lines)
-        {
-        
-            if (line.StartsWith("#EXT-X-TARGETDURATION:"))
-            {
-                var v = line.Split(':', 2)[1].Trim();
-                if (int.TryParse(v, out var td)) _targetDurationSeconds = td;
-            }
-            else if (line.StartsWith("#EXT-X-MEDIA-SEQUENCE:"))
-            {
-                var v = line.Split(':', 2)[1].Trim();
-                if (long.TryParse(v, out var seq)) _mediaSequence = seq;
-            }
-            else if (line.StartsWith("#EXT-X-ENDLIST"))
-            {
-                _isLive = false;
-            }
-        }
-    }
+ 
 
-    private static Uri ResolveUri(Uri baseUri, string maybeRelative)
-    {
-        if (Uri.TryCreate(maybeRelative, UriKind.Absolute, out var abs)) return abs;
-        return new Uri(baseUri, maybeRelative);
-    }
 
-    private record Segment(Uri Uri, double Duration, long Seq,DateTimeOffset Ts);
 
-    private List<Segment> ParseSegments(string[] lines, Uri baseUri)
-    {
-        var list = new List<Segment>();
-        double? pendingDur = null;
-        var seq = _mediaSequence;
-        DateTimeOffset? pendingPdt = null;
-
-        foreach (var line in lines)
-        {
-            if (line.StartsWith("#EXTINF:"))
-            {
-                var val = line.Split(':', 2)[1];
-                var comma = val.IndexOf(',');
-                var durStr = comma >= 0 ? val[..comma] : val;
-                if (double.TryParse(durStr, System.Globalization.NumberStyles.Float,
-                                    System.Globalization.CultureInfo.InvariantCulture, out var d))
-                {
-                    pendingDur = d;
-                }
-            }
-            else if (line.StartsWith("#EXT-X-PROGRAM-DATE-TIME:", StringComparison.Ordinal))
-            {
-                var iso = line.Split(':',2)[1].Trim();
-                if (DateTimeOffset.TryParse(iso, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var dto))
-                    pendingPdt = dto;
-            }
-            else if (!line.StartsWith("#"))
-            {
-                var when =
-                    pendingPdt.HasValue ? pendingPdt.Value : DateTimeOffset.UtcNow;
-
-                // Segment URI
-                var u = ResolveUri(baseUri, WebUtility.UrlDecode(line.Trim()));
-                list.Add(new Segment(u, pendingDur ?? 0, seq,when));
-                seq++;
-                pendingDur = null;
-            }
-        }
-
-        return list;
-    }
+   
 
     private async Task DownloadSegmentAsync(Segment seg, CancellationToken ct)
     {
-        var name = MakeSafeFileName($"{seg.Seq:D10}.ts");
+        var name = Common.MakeSafeFileName($"{seg.Seq:D10}.ts");
         
         var local = TimeZoneInfo.ConvertTime(seg.Ts, TimeZoneInfo.Utc);
         var subdir = Path.Combine(
@@ -268,13 +203,7 @@ public class HlsGrabber
         await resp.Content.CopyToAsync(fs, ct);
     }
 
-    private static string MakeSafeFileName(string s)
-    {
-        foreach (var c in Path.GetInvalidFileNameChars())
-            s = s.Replace(c, '_');
-        return s;
-    }
-
+ 
     private async Task<string> GetStringAsync(Uri uri, CancellationToken ct)
     {
         using var req = new HttpRequestMessage(HttpMethod.Get, uri);
