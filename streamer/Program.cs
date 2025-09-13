@@ -13,10 +13,8 @@ class Program
         if (!string.IsNullOrWhiteSpace(rewind))
         {
             return await RewindDownloader.Run(args);
-
         }
         
-
         var outDir = GetArg(args, "--out") ?? "./out";
         var intervalArg = GetArg(args, "--interval");
         var maxSegmentsArg = GetArg(args, "--maxSegments");
