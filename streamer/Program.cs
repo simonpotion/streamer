@@ -2,12 +2,21 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
+using streamer;
 
 class Program
 {
     static async Task<int> Main(string[] args)
     {
         var url = GetArg(args, "--url");
+        var rewind = GetArg(args, "--rewind");
+        if (!string.IsNullOrWhiteSpace(rewind))
+        {
+            return await Downloader.Run(args);
+
+        }
+        
+
         var outDir = GetArg(args, "--out") ?? "./out";
         var intervalArg = GetArg(args, "--interval");
         var maxSegmentsArg = GetArg(args, "--maxSegments");
@@ -55,7 +64,7 @@ class Program
         }
     }
 
-    static string? GetArg(string[] args, string name)
+    public static string? GetArg(string[] args, string name)
     {
         var idx = Array.IndexOf(args, name);
         if (idx >= 0 && idx + 1 < args.Length) return args[idx + 1];
@@ -143,12 +152,12 @@ public class HlsGrabber
         {
             var lines = text.Replace("\r", "").Split('\n', StringSplitOptions.RemoveEmptyEntries);
             // Pick the first variant; you could add logic to pick highest BANDWIDTH
-            for (int i = 0; i < lines.Length; i++)
+            for (var i = 0; i < lines.Length; i++)
             {
                 if (lines[i].StartsWith("#EXT-X-STREAM-INF"))
                 {
                     // Next non-comment line is the URI
-                    for (int j = i + 1; j < lines.Length; j++)
+                    for (var j = i + 1; j < lines.Length; j++)
                     {
                         if (lines[j].StartsWith("#")) continue;
                         var mediaUri = ResolveUri(uri, lines[j]);
@@ -167,6 +176,7 @@ public class HlsGrabber
         _isLive = true;
         foreach (var line in lines)
         {
+        
             if (line.StartsWith("#EXT-X-TARGETDURATION:"))
             {
                 var v = line.Split(':', 2)[1].Trim();
@@ -196,7 +206,7 @@ public class HlsGrabber
     {
         var list = new List<Segment>();
         double? pendingDur = null;
-        long seq = _mediaSequence;
+        var seq = _mediaSequence;
         DateTimeOffset? pendingPdt = null;
 
         foreach (var line in lines)
@@ -220,7 +230,7 @@ public class HlsGrabber
             }
             else if (!line.StartsWith("#"))
             {
-                DateTimeOffset when =
+                var when =
                     pendingPdt.HasValue ? pendingPdt.Value : DateTimeOffset.UtcNow;
 
                 // Segment URI
@@ -239,7 +249,7 @@ public class HlsGrabber
         var name = MakeSafeFileName($"{seg.Seq:D10}.ts");
         
         var local = TimeZoneInfo.ConvertTime(seg.Ts, TimeZoneInfo.Utc);
-        string subdir = Path.Combine(
+        var subdir = Path.Combine(
             _outDir,
             local.Year.ToString("D4", CultureInfo.InvariantCulture),
             local.Month.ToString("D2", CultureInfo.InvariantCulture),
