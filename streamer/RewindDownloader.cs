@@ -96,8 +96,18 @@ public static class RewindDownloader
             
             if (!File.Exists(filePath))
             {
+                TimeSpan time = TimeSpan.FromSeconds(i*segments[0].Duration);
+
+                string hms = string.Format("{0:D2}:{1:D2}:{2:D2}",
+                    time.Hours,
+                    time.Minutes,
+                    time.Seconds);
+                
+                
+                Console.WriteLine($"Downloaded: {filePath} {i} of {totalSegmentsToDownload} {hms}");
+
                 await DownloadFileAsync(client, tsUrl, filePath);
-                await Task.Delay(2000);
+                await Task.Delay(1000);
             }
 
             downloadedSegments.Add(filePath);
@@ -116,6 +126,5 @@ public static class RewindDownloader
 
         await File.WriteAllBytesAsync(filePath, fileBytes);
 
-        Console.WriteLine($"Downloaded: {filePath}");
     }
 }
