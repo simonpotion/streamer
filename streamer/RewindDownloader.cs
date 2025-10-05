@@ -63,18 +63,21 @@ public static class RewindDownloader
             Console.WriteLine("Failed to parse media sequence, segment duration, or segment prefix.");
             return [];
         }
+        
+        TimeZoneInfo ukZone = TimeZoneInfo.FindSystemTimeZoneById("GMT Standard Time"); 
 
-        var startTime = DateTime.UtcNow.AddHours(-startHourOffset);
-        
-        
+        var nowTime = DateTime.UtcNow;
+
+        DateTime ukTime = TimeZoneInfo.ConvertTimeFromUtc(nowTime, ukZone);
+
+        var startTime = ukTime.AddHours(-startHourOffset);
         var endTime = startTime.AddHours(durationHours);
         
         Console.WriteLine($"Assuming time of {startTime} to {endTime}");
         
-        var nowTime = DateTime.UtcNow;
         
         var totalSeconds = (endTime - startTime).TotalSeconds;
-        var offsetFromNow = (nowTime - startTime).TotalSeconds;
+        var offsetFromNow = (ukTime - startTime).TotalSeconds;
 
         var totalSegmentsToDownload = (int)(totalSeconds / segments[0].Duration);
 
@@ -107,7 +110,7 @@ public static class RewindDownloader
                 Console.WriteLine($"Downloaded: {filePath} {i} of {totalSegmentsToDownload} {hms}");
 
                 await DownloadFileAsync(client, tsUrl, filePath);
-                await Task.Delay(1000);
+                await Task.Delay(750);
             }
 
             downloadedSegments.Add(filePath);

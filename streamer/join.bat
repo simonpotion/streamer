@@ -8,6 +8,7 @@ if "%~1"=="" (
 )
 
 set "WORKDIR=%~1"
+set "OUTPUT=%~2"
 
 :: Move into that directory
 pushd "%WORKDIR%" || (
@@ -24,13 +25,13 @@ echo Creating file list...
 ) > file_list.txt
 
 :: 2. Run ffmpeg to combine and convert to mp3
-echo Combining .ts files into output.mp3...
-c:/ffmpeg/bin/ffmpeg -f concat -safe 0 -i file_list.txt -c:a libmp3lame -q:a 2 output.mp3
+echo Combining .ts files into "%WORKDIR%\%OUTPUT%.mp3" ...
+c:/ffmpeg/bin/ffmpeg -f concat -safe 0 -i file_list.txt -c:a libmp3lame -q:a 2 %OUTPUT%.mp3
 
 :: 3. Cleanup
 del file_list.txt
 
-echo Done! Output file is "%WORKDIR%\output.mp3"
+echo Done! Output file is "%WORKDIR%\%OUTPUT%.mp3"
 pause
 
 :: Go back to original directory
